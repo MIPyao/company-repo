@@ -152,3 +152,89 @@ model Order {
 
   @@map("orders")
 }
+
+// PRD会话表（一次完整的对话）
+model PRDSession {
+  id           String   @id @default(uuid())
+  sessionId    String   @unique @map("session_id")
+  userId       String?  @map("user_id")
+  productType  String   @map("product_type") // SaaS/移动应用/内部工具/AI产品
+  productName  String   @map("product_name")
+  status       String   @default("in_progress") // in_progress/completed/abandoned
+  conversation Json?    // 存储对话历史（JSON）
+  messages     Message[]
+  prd          PRD?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("prd_sessions")
+}
+
+// 消息表
+model Message {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  role      String   // user | assistant | system
+  content   String   @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session PRDSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// PRD文档表
+model PRD {
+  id           String   @id @default(uuid())
+  prdId        String   @unique @map("prd_id")
+  sessionId    String?  @unique @map("session_id")
+  templateId   String?  @map("template_id")
+  version      Int      @default(1)
+  title        String
+  content      String   @db.Text
+  htmlContent  String?  @map("html_content")
+  versions     PRDVersion[]
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([sessionId])
+  @@index([templateId])
+  @@map("prds")
+}
+
+// PRD版本表
+model PRDVersion {
+  id       String   @id @default(uuid())
+  prdId    String   @map("prd_id")
+  version  Int
+  content  String   @db.Text
+  diff     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  prd PRD @relation(fields: [prdId], references: [prdId], onDelete: Cascade)
+
+  @@unique([prdId, version])
+  @@index([prdId])
+  @@map("prd_versions")
+}
+
+// PRD模板表
+model Template {
+  id          String   @id @default(uuid())
+  templateId  String   @unique @map("template_id")
+  name        String
+  type        String   @map("template_type") // SaaS/移动应用/内部工具/AI产品
+  content     String   @db.Text
+  isDefault   Boolean  @default(false) @map("is_default")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@map("templates")
+}
